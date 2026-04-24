@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Threading.Tasks;
+using FluentValidation.Results;
 using Newtonsoft.Json;
 using NLog;
 using NzbDrone.Common.Http;
@@ -10,14 +13,14 @@ using NzbDrone.Core.Parser.Model;
 
 namespace NzbDrone.Core.Indexers.PyBookIrc
 {
-    public class PyBookIrc : HttpIndexerBase<PyBookIrcSettings>
+    public class PyBookIrcIndexer : HttpIndexerBase<PyBookIrcSettings>
     {
         public override string Name => "PyBookIrc";
         public override DownloadProtocol Protocol => DownloadProtocol.Irc;
         public override bool SupportsRss => false;
         public override TimeSpan RateLimit => TimeSpan.FromSeconds(30);
 
-        public PyBookIrc(IHttpClient httpClient,
+        public PyBookIrcIndexer(IHttpClient httpClient,
                          IIndexerStatusService indexerStatusService,
                          IConfigService configService,
                          IParsingService parsingService,
@@ -34,6 +37,38 @@ namespace NzbDrone.Core.Indexers.PyBookIrc
         public override IParseIndexerResponse GetParser()
         {
             return new PyBookIrcParser(Settings);
+        }
+
+        // IRC has no RSS feed, so the default TestConnection (which calls
+        // GetRecentRequests) is meaningless. Ping the daemon's /health
+        // endpoint instead — it tells us the daemon is reachable AND that
+        // the IRC connection underneath is up.
+        public override async Task<ValidationFailure> TestConnection()
+        {
+            try
+            {
+                var builder = new HttpRequestBuilder(Settings.BaseUrl.TrimEnd('/'))
+                    .Resource("/health")
+                    .Accept(HttpAccept.Json);
+                builder.SetHeader("Authorization", $"Bearer {Settings.AuthToken}");
+
+                var response = await _httpClient.ExecuteAsync(builder.Build()).ConfigureAwait(false);
+                if (response.StatusCode != HttpStatusCode.OK)
+                {
+                    return new ValidationFailure(string.Empty, $"pybookirc daemon returned HTTP {(int)response.StatusCode} — IRC connection may be down");
+                }
+            }
+            catch (HttpException ex) when (ex.Response?.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return new ValidationFailure("AuthToken", "Invalid bearer token");
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "pybookirc daemon unreachable at {0}", Settings.BaseUrl);
+                return new ValidationFailure("BaseUrl", $"Unable to reach pybookirc daemon: {ex.Message}");
+            }
+
+            return null;
         }
     }
 

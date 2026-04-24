@@ -33,7 +33,8 @@ RUN --mount=type=bind,source=_output,target=_output \
     "windows/amd64") cp -r /_output/net6.0/win-x64 /app/readarr/bin ;; \
     *) echo "Unknown platform: $TARGETPLATFORM" && exit 1 ;; \
     esac; \
-    cp -r /_output/UI /app/readarr/bin/UI
+    cp -r /_output/UI /app/readarr/bin/UI; \
+    ln -s bin/UI /app/readarr/UI
 
 RUN echo -e "UpdateMethod=docker\nBranch=${GIT_BRANCH}\nPackageVersion=${COMMIT_HASH}}\nPackageAuthor=pennydreadful" > /app/readarr/package_info && \
     printf "version: ${COMMIT_HASH}}\nBuild-date: ${BUILD_DATE}" > /build_version

@@ -13,11 +13,11 @@ using NzbDrone.Core.RemotePathMappings;
 
 namespace NzbDrone.Core.Download.Clients.PyBookIrc
 {
-    public class PyBookIrc : DownloadClientBase<PyBookIrcSettings>
+    public class PyBookIrcDownloadClient : DownloadClientBase<PyBookIrcDownloadClientSettings>
     {
         private readonly IPyBookIrcProxy _proxy;
 
-        public PyBookIrc(IPyBookIrcProxy proxy,
+        public PyBookIrcDownloadClient(IPyBookIrcProxy proxy,
                          IHttpClient httpClient,
                          IConfigService configService,
                          IDiskProvider diskProvider,

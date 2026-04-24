@@ -5,20 +5,20 @@ using NzbDrone.Core.Validation;
 
 namespace NzbDrone.Core.Download.Clients.PyBookIrc
 {
-    public class PyBookIrcSettingsValidator : AbstractValidator<PyBookIrcSettings>
+    public class PyBookIrcDownloadClientSettingsValidator : AbstractValidator<PyBookIrcDownloadClientSettings>
     {
-        public PyBookIrcSettingsValidator()
+        public PyBookIrcDownloadClientSettingsValidator()
         {
             RuleFor(c => c.BaseUrl).ValidRootUrl();
             RuleFor(c => c.AuthToken).NotEmpty();
         }
     }
 
-    public class PyBookIrcSettings : IProviderConfig
+    public class PyBookIrcDownloadClientSettings : IProviderConfig
     {
-        private static readonly PyBookIrcSettingsValidator Validator = new PyBookIrcSettingsValidator();
+        private static readonly PyBookIrcDownloadClientSettingsValidator Validator = new PyBookIrcDownloadClientSettingsValidator();
 
-        public PyBookIrcSettings()
+        public PyBookIrcDownloadClientSettings()
         {
             BaseUrl = "http://pybookirc:8789";
         }
