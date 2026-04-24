@@ -13,6 +13,7 @@ namespace NzbDrone.Core.Download.Clients.PyBookIrc
     {
         string EnqueueDownload(string command, PyBookIrcSettings settings);
         PyBookIrcJob GetJob(string jobId, PyBookIrcSettings settings);
+        System.Collections.Generic.IList<PyBookIrcJob> ListJobs(PyBookIrcSettings settings);
         bool RemoveJob(string jobId, PyBookIrcSettings settings);
         bool HealthCheck(PyBookIrcSettings settings);
     }
@@ -59,6 +60,14 @@ namespace NzbDrone.Core.Download.Clients.PyBookIrc
             }
 
             return Json.Deserialize<PyBookIrcJob>(response.Content);
+        }
+
+        public System.Collections.Generic.IList<PyBookIrcJob> ListJobs(PyBookIrcSettings settings)
+        {
+            var request = Build(settings, "/downloads").Build();
+            var response = Execute(request, settings);
+            var jobs = JsonConvert.DeserializeObject<System.Collections.Generic.List<PyBookIrcJob>>(response.Content);
+            return jobs ?? new System.Collections.Generic.List<PyBookIrcJob>();
         }
 
         public bool RemoveJob(string jobId, PyBookIrcSettings settings)

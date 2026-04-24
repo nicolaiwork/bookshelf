@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentValidation.Results;
@@ -47,11 +48,16 @@ namespace NzbDrone.Core.Download.Clients.PyBookIrc
 
         public override IEnumerable<DownloadClientItem> GetItems()
         {
-            // TODO: poll daemon for tracked jobs. Next implementation step — requires
-            // remembering job_ids across Bookshelf restarts (probably via Bookshelf's
-            // own download history), since the daemon's /status only surfaces recent
-            // completions, not every ever-seen job_id.
-            return new List<DownloadClientItem>();
+            var clientInfo = DownloadClientItemClientInfo.FromDownloadClient(this, false);
+
+            foreach (var job in _proxy.ListJobs(Settings))
+            {
+                var mapped = MapJob(job, clientInfo);
+                if (mapped != null)
+                {
+                    yield return mapped;
+                }
+            }
         }
 
         public override void RemoveItem(DownloadClientItem item, bool deleteData)
@@ -78,5 +84,44 @@ namespace NzbDrone.Core.Download.Clients.PyBookIrc
                 failures.Add(new ValidationFailure(string.Empty, "pybookirc daemon /health check failed — verify the URL and auth token"));
             }
         }
+
+        private DownloadClientItem MapJob(PyBookIrcJob job, DownloadClientItemClientInfo clientInfo)
+        {
+            if (string.IsNullOrWhiteSpace(job?.JobId))
+            {
+                return null;
+            }
+
+            var item = new DownloadClientItem
+            {
+                DownloadClientInfo = clientInfo,
+                DownloadId = job.JobId,
+                Title = job.Filename ?? job.Command ?? job.JobId,
+                Status = MapStatus(job.Status),
+                Message = job.Error,
+                CanBeRemoved = true,
+                CanMoveFiles = true,
+                TotalSize = job.SizeBytesTotal ?? 0,
+                RemainingSize = Math.Max(0, (job.SizeBytesTotal ?? 0) - (job.SizeBytesReceived ?? 0)),
+            };
+
+            if (!string.IsNullOrWhiteSpace(job.OutputPath))
+            {
+                var mapped = _remotePathMappingService.RemapRemoteToLocal(Settings.BaseUrl, new OsPath(job.OutputPath));
+                item.OutputPath = mapped;
+            }
+
+            return item;
+        }
+
+        private static DownloadItemStatus MapStatus(string status) =>
+            status switch
+            {
+                "queued" => DownloadItemStatus.Queued,
+                "downloading" => DownloadItemStatus.Downloading,
+                "completed" => DownloadItemStatus.Completed,
+                "failed" or "timeout" or "cancelled" => DownloadItemStatus.Failed,
+                _ => DownloadItemStatus.Warning,
+            };
     }
 }
